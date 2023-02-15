@@ -1295,6 +1295,61 @@ static int eveye_enc_pic_finish(EVEYE_CTX * ctx, EVEY_BITB * bitb, EVEYE_STAT * 
     return EVEY_OK;
 }
 
+// added: write nof_image to file
+void NN_savePredictor(const char *fileName, pel* fileNof, int width, int height, int stride, _Bool appendMode) 
+{ 
+
+	FILE *fd; 
+
+        // Reading 
+
+        if (appendMode) 
+	{
+  		fd = fopen(fileName, "ab"); 
+	}
+	else 
+	{
+        	fd = fopen(fileName, "wb"); 
+	}
+	unsigned char pixelChar[2]; 
+	unsigned char * pixelCharPointer; 
+
+	pixelCharPointer = (unsigned char *)fileNof; 
+
+	unsigned short pixel; 
+
+        for (int y=0; y<height; y++)  
+        { 
+
+        	for (int x=0; x<width; x++)  
+                {       
+                 /*	// 10 bit
+                 //	if (strcmp("10bit", data_bit_depth) == 0) 
+
+                //      { 
+
+                        	pixelChar[0] = (fileNof[(y*stride) + x] & 0xFF);  // low byte 
+
+                        	pixelChar[1] = (fileNof[(y*stride) + x] >> 8) & 0xFF;  // high byte 
+
+                                fwrite(&pixelChar, sizeof(char), 2, fd); 
+
+                //      } 
+
+                //      else 
+                //      {
+                */	// 8 bit 
+                	unsigned char color = (unsigned char)((double)(255 * fileNof[(y*stride) + x]) / (double)(1 << 10)); 
+
+                        fwrite(&color, sizeof(char), 1, fd);
+                //      } 
+		} 
+	} 
+	fclose(fd); 
+} 
+// Remember to add function also in eveye_def.h
+// end
+
 /* encode one picture */
 static int eveye_enc_pic(EVEYE_CTX * ctx, EVEY_BITB * bitb, EVEYE_STAT * stat)
 {
