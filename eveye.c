@@ -1358,7 +1358,10 @@ static int eveye_enc_pic(EVEYE_CTX * ctx, EVEY_BITB * bitb, EVEYE_STAT * stat)
     EVEY_SH    * sh;
     int          ret;
     u8         * curr_temp = ctx->bs.cur;
-
+    // added
+    EVEY_PIC** buf_dbk = &ctx->pic_dbk;
+    EVEY_PIC** buf_pic = &ctx->pic;
+    // end
     /* initialize reference pictures */
     ret = evey_picman_refp_init(ctx);
     evey_assert_rv(ret == EVEY_OK, ret);
