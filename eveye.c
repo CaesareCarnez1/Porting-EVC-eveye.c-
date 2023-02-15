@@ -1559,7 +1559,41 @@ static int eveye_enc_pic(EVEYE_CTX * ctx, EVEY_BITB * bitb, EVEYE_STAT * stat)
         iRemoveResult = remove("pred_end.sig");
     }
     // end
+        
+    // added
+    static FILE* fpYuvEnhanced;
+    static unsigned char * infoEnhanced[3];
+    ctx->pic = NULL;
+    for (int i = 0; i<3; i++)
+    {
+    	if (i==0)
+    	{
+        	fpYuvEnhanced = fopen("rec_enhanced.yuv", "rb");
+        	assert(fread(infoEnhanced[i], sizeof(unsigned char), w*h, fpYuvEnhanced) > 0);
+        }
+        
+        else if (i==1)
+	{	
+        	assert(fread(infoEnhanced[i], sizeof(unsigned char), (ctx->pic->w_c)*(ctx->pic->h_c), fpYuvEnhanced) > 0);
+        }
+        
+        else
+        {
+        	assert(fread(infoEnhanced[i], sizeof(unsigned char), (ctx->pic->w_c)*(ctx->pic->h_c), fpYuvEnhanced) > 0);
+        	fclose(fpYuvEnhanced);
+        }
+    } 
     
+    ctx->pic = (EVEY_PIC*)infoEnhanced;
+    /*for (int y=0; y<h; y++)  
+        { 
+        	for (int x=0; x<w; x++)  
+                {       
+    			Color[y][x] = (pel)infoEnhanced[y][x];				
+    		}
+    	}*/
+
+    //  end */ 
     /* deblocking filter */
     if(sh->slice_deblocking_filter_flag)
     {
@@ -1572,7 +1606,7 @@ static int eveye_enc_pic(EVEYE_CTX * ctx, EVEY_BITB * bitb, EVEYE_STAT * stat)
         EVEY_TRACE_SET(0);
 #endif
     }
-
+    printf("\n%d, %d, %d\n", ctx->pic->w_l, ctx->pic->h_l, ctx->pic->s_l);
     return EVEY_OK;
 }
 
