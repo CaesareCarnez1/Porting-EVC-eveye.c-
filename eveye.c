@@ -1520,7 +1520,46 @@ static int eveye_enc_pic(EVEYE_CTX * ctx, EVEY_BITB * bitb, EVEYE_STAT * stat)
     eveye_bsw_deinit(bs);
     *size_field = (int)(bs->cur - cur_tmp) - 4; /* set nal_unit_size field */
     curr_temp = bs->cur;
+    int w = ctx->param.w;
+    int h = ctx->param.h;
+    // added 
+    for (int i=0; i<3; i++)
+    {
+    	if (i==0)
+    	{
+    		NN_savePredictor("rec_nof.yuv", (*buf_pic)->y, ctx->pic->w_l, ctx->pic->h_l, ctx->pic->s_l, 0);
+    	}
+    	if (i==1)
+    	{
+    		NN_savePredictor("rec_nof.yuv", (*buf_pic)->u, ctx->pic->w_c, ctx->pic->h_c, ctx->pic->s_c, 1);
+    	}
+    	if (i==2)
+    	{
+    		NN_savePredictor("rec_nof.yuv", (*buf_pic)->v, ctx->pic->w_c, ctx->pic->h_c, ctx->pic->s_c, 1);
+    	}
+    	
+    }
+    static FILE* fpParameter, * fpPredStart, * fpPredEnd;
+    // generate start signal
+    fpPredStart = fopen("pred_start.sig", "w+");
+    fclose(fpPredStart);
 
+    // wait for Python predicting enhanced YUV frame
+    while ((fpPredEnd = fopen("pred_end.sig", "r")) == NULL)
+    {
+        sleep(0.1); // Linux
+    }
+    
+    remove("pred_start.sig");
+    int iRemoveResult = -1;
+    
+    while (iRemoveResult < 0)
+    {
+        fclose(fpPredEnd);
+        iRemoveResult = remove("pred_end.sig");
+    }
+    // end
+    
     /* deblocking filter */
     if(sh->slice_deblocking_filter_flag)
     {
