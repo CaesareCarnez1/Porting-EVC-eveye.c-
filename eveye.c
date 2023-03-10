@@ -1523,6 +1523,7 @@ static int eveye_enc_pic(EVEYE_CTX * ctx, EVEY_BITB * bitb, EVEYE_STAT * stat)
     int w = ctx->param.w;
     int h = ctx->param.h;
     // added 
+    
     for (int i=0; i<3; i++)
     {
     	if (i==0)
@@ -1559,45 +1560,7 @@ static int eveye_enc_pic(EVEYE_CTX * ctx, EVEY_BITB * bitb, EVEYE_STAT * stat)
         iRemoveResult = remove("pred_end.sig");
     }
     // end
-        
-    // added but to modify
-    static FILE* fpYuvEnhanced;
-    fpYuvEnhanced = fopen("rec_enhanced.yuv", "rb+");
-    // prove: sizeofPel, togli (pel*),
-    unsigned char *y_buffer;
-    int y_size = w*h*sizeof(pel);
-    y_buffer = (unsigned char*) malloc(y_size);
-    assert(fread(y_buffer, 1, y_size, fpYuvEnhanced) > 0);
-    memcpy((pel*)ctx->pic->y, y_buffer, y_size);
-    free(y_buffer);
     
-    //fseek(fpYuvEnhanced, w*h, SEEK_CUR);
-    unsigned char *u_buffer;
-    int u_size = (ctx->pic->w_c)*(ctx->pic->h_c)*sizeof(pel);
-    u_buffer = (unsigned char*) malloc(u_size);
-    assert(fread(u_buffer, 1, u_size, fpYuvEnhanced) > 0);
-    memcpy((pel*)ctx->pic->u, u_buffer, u_size);
-    free(u_buffer);
-    
-    //fseek(fpYuvEnhanced, (ctx->pic->w_c)*(ctx->pic->h_c), SEEK_CUR);
-    unsigned char *v_buffer;
-    int v_size = (ctx->pic->w_c)*(ctx->pic->h_c)*sizeof(pel);
-    v_buffer = (unsigned char*) malloc(v_size);
-    assert(fread(v_buffer, 1, v_size, fpYuvEnhanced) > 0);
-    memcpy((pel*)ctx->pic->v, v_buffer, v_size);
-    free(v_buffer);
-    
-    fclose(fpYuvEnhanced);
-    
-    /*for (int y=0; y<h; y++)  
-        { 
-        	for (int x=0; x<w; x++)  
-                {       
-    			Color[y][x] = (pel)infoEnhanced[y][x];				
-    		}
-    	}*/
-
-    //  end
     /* deblocking filter */
     if(sh->slice_deblocking_filter_flag)
     {
@@ -1637,7 +1600,75 @@ static int eveye_enc(EVEYE_CTX * ctx, EVEY_BITB * bitb, EVEYE_STAT * stat)
     /* finishing of encoding a picture */
     ctx->fn_enc_pic_finish(ctx, bitb, stat);
     evey_assert_rv(ret == EVEY_OK, ret);
+    
+    int w = ctx->param.w;
+    int h = ctx->param.h;
+    
+    // added but to modify
+    FILE* fpYuvEnhanced;
+    fpYuvEnhanced = fopen("rec_enhanced.yuv", "rb");
+    
+    // Suggerimento tutors
+    // y
+    unsigned char *bufy = (unsigned char *) malloc(w*h*sizeof(char));
+    //pel *bufy16 = (pel*) malloc(w*h*sizeof(pel));
+    
+    int r = fread(bufy, sizeof(unsigned char), w*h, fpYuvEnhanced);
+    
+    for (int y=0; y<h; y++) 
+    {
 
+    	for (int x=0; x<w; x++) 
+    	{
+    	
+        	ctx->pic->y[(y*ctx->pic->s_l) + x] = (pel)(4*bufy[(y*w) +x]);
+
+        }
+
+    }
+    free(bufy);
+    
+    // u
+    unsigned char *bufu = (unsigned char *) malloc(ctx->pic->w_c*ctx->pic->h_c*sizeof(char));
+    //pel *bufu16 = (pel*) malloc(ctx->pic->w_c*ctx->pic->h_c*sizeof(pel));
+    
+    r = fread(bufu, sizeof(unsigned char), ctx->pic->w_c*ctx->pic->h_c, fpYuvEnhanced);
+    
+    for (int y=0; y < ctx->pic->h_c; y++) 
+    {
+
+    	for (int x=0; x < ctx->pic->w_c; x++) 
+    	{
+
+        	ctx->pic->u[(y*ctx->pic->s_c) + x] = (pel)(4*bufu[(y*ctx->pic->w_c) +x]);
+
+        }
+
+    }
+    free(bufu);
+    
+    // v
+    unsigned char *bufv = (unsigned char *) malloc(ctx->pic->w_c*ctx->pic->h_c*sizeof(char));
+    //pel *bufv16 = (pel*) malloc(ctx->pic->w_c*ctx->pic->h_c*sizeof(pel));
+    
+    r = fread(bufv, sizeof(unsigned char), ctx->pic->w_c*ctx->pic->h_c, fpYuvEnhanced);
+    
+    for (int y=0; y < ctx->pic->h_c; y++) 
+    {
+
+    	for (int x=0; x < ctx->pic->w_c; x++) 
+    	{
+
+  
+        	ctx->pic->v[(y*ctx->pic->s_c) + x] = (pel)(4*bufv[(y*ctx->pic->w_c) +x]);
+        	
+        }
+
+    }
+    
+    free(bufv);
+    fclose(fpYuvEnhanced);
+    
     return EVEY_OK;
 }
 
