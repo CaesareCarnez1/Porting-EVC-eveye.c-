@@ -1522,8 +1522,17 @@ static int eveye_enc_pic(EVEYE_CTX * ctx, EVEY_BITB * bitb, EVEYE_STAT * stat)
     curr_temp = bs->cur;
     int w = ctx->param.w;
     int h = ctx->param.h;
+    
     // added 
     
+    // command dat
+    static FILE * fpCommand;
+    fpCommand = fopen("command.dat", "w+");
+    fprintf(fpCommand, "%d %d %d %d %d 0 -1_-1 [end]", EOC, ctx->poc.poc_val, w, h, ctx->param.qp);
+    EOC++;
+    fclose(fpCommand);
+    
+    // rec_nof
     for (int i=0; i<3; i++)
     {
     	if (i==0)
