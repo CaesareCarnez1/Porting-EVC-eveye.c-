@@ -1359,6 +1359,7 @@ static int eveye_enc_pic(EVEYE_CTX * ctx, EVEY_BITB * bitb, EVEYE_STAT * stat)
     int          ret;
     u8         * curr_temp = ctx->bs.cur;
     // added
+    EVEYE_PARAM * param;
     EVEY_PIC** buf_dbk = &ctx->pic_dbk;
     EVEY_PIC** buf_pic = &ctx->pic;
     // end
@@ -1453,7 +1454,8 @@ static int eveye_enc_pic(EVEYE_CTX * ctx, EVEY_BITB * bitb, EVEYE_STAT * stat)
     core->y_ctu = 0;
 
     int bef_cu_qp = ctx->sh.qp_prev_eco;
-
+    
+    unsigned char * CuList = (unsigned char*) malloc((ctx->param.w/16)*(ctx->param.h/16));
     /* CTU encoding loop */
     while(ctx->ctu_cnt > 0)
     {
@@ -1483,13 +1485,74 @@ static int eveye_enc_pic(EVEYE_CTX * ctx, EVEY_BITB * bitb, EVEYE_STAT * stat)
             core->x_ctu = 0;
             core->y_ctu++;
         }
+        // added
+    	FILE *CuDepth;
+    
+    	int poc = ctx->poc.poc_val;
+    	int addr = core->ctu_num;
+    	int w = ctx->param.w;
+    	int h = ctx->param.h;
+    	
+    	int WidthCtu = w % 64 == 0 ? w/64 : w / 64 + 1;
+    	int HeightCtu = h % 64 == 0 ? h/64 : h / 64 + 1;
+    
+    	int x16;
+    	int y16;
+    	for(int x=0; x<4; x++) 
+    	{
+    		for(int y=0; y<4; y++)
+    		{
+    			x16 = 4*(addr%WidthCtu) + x;
+    			y16 = 4*(addr / WidthCtu) + y;
+    			if(x16*16 + 16 <= w && y16*16 + 16 <= h)
+    			{	
+    				int cuw = 1 << core->log2_cuw;
+    				if (cuw == ctx->min_cu_size) {
+    					CuList[y16*(w / 16) + x16] = ctx->min_cu_size;
+    				}
+    				else if (cuw == 8) {
+    					CuList[y16*(w / 16) + x16] = 3;
+    				}
+    				else if (cuw == 16) {
+    					CuList[y16*(w / 16) + x16] = 2;
+    				}
+    				else if (cuw == 32) {
+    					CuList[y16*(w / 16) + x16] = 1;
+    				}
+    				else {
+    					CuList[y16*(w / 16) + x16] = 0;
+    				}
+
+    			}
+    		
+    		}
+    	}
+    	/*
+    	for (int j=0; j<ctx->w; j+=ctx->ctu_size)
+    	{
+    		int cuw = j + ctx->ctu_size > ctx->w ? ctx->w -j : ctx->ctu_size;
+    		print("%d ", cuw);
+    	}
+    	*/
+    	if(addr == WidthCtu*HeightCtu - 1) 
+    	{
+    		CuDepth = fopen("Info_CUDepth.dat", "w+");
+    		fwrite(CuList, 1, (w/16)*(h/16), CuDepth);
+    		fclose(CuDepth);
+    	
+    		CuDepth = fopen("Info_TUDepth.dat", "w+");
+    		fwrite(CuList, 1, (w/16)*(h/16), CuDepth);
+    		fclose(CuDepth);
+    		printf("\nPartizione fatta per 1 frame\n");
+    		free(CuList);
+    	}
+    	// end 
         ctx->ctu_cnt--;
     } /* end of CTU processing loop */
 
     /* write tile_end_flag */
     eveye_eco_tile_end_flag(bs, 1);
     eveye_sbac_finish(bs);
-
     /* cabac_zero_word coding */
     {
         unsigned int bin_counts_in_units = 0;
@@ -1520,11 +1583,10 @@ static int eveye_enc_pic(EVEYE_CTX * ctx, EVEY_BITB * bitb, EVEYE_STAT * stat)
     eveye_bsw_deinit(bs);
     *size_field = (int)(bs->cur - cur_tmp) - 4; /* set nal_unit_size field */
     curr_temp = bs->cur;
-    int w = ctx->param.w;
-    int h = ctx->param.h;
     
     // added 
-    
+    int w = ctx->param.w;
+    int h = ctx->param.h;
     // command dat
     static FILE * fpCommand;
     fpCommand = fopen("command.dat", "w+");
@@ -1583,6 +1645,65 @@ static int eveye_enc_pic(EVEYE_CTX * ctx, EVEY_BITB * bitb, EVEYE_STAT * stat)
 #endif
     }
     printf("\n%d, %d, %d\n", ctx->pic->w_l, ctx->pic->h_l, ctx->pic->s_l);
+    
+    // added
+    FILE* fpYuvEnhanced;
+    fpYuvEnhanced = fopen("rec_enhanced.yuv", "rb");
+    
+    // y
+    unsigned char *bufy = (unsigned char *) malloc(w*h*sizeof(char));
+    int r = fread(bufy, sizeof(unsigned char), w*h, fpYuvEnhanced);
+    
+    for (int y=0; y<h; y++) 
+    {
+
+    	for (int x=0; x<w; x++) 
+    	{
+    	
+        	ctx->pic->y[(y*ctx->pic->s_l) + x] = (pel)((1023/255)*(bufy[(y*ctx->pic->w_l) +x]));
+
+        }
+
+    }
+    free(bufy);
+    
+    // u
+    unsigned char *bufu = (unsigned char *) malloc(ctx->pic->w_c*ctx->pic->h_c*sizeof(char));
+    r = fread(bufu, sizeof(unsigned char), ctx->pic->w_c*ctx->pic->h_c, fpYuvEnhanced);
+    
+    for (int y=0; y < ctx->pic->h_c; y++) 
+    {
+
+    	for (int x=0; x < ctx->pic->w_c; x++) 
+    	{
+
+        	ctx->pic->u[(y*ctx->pic->s_c) + x] = (pel)((1023/255)*(bufu[(y*ctx->pic->w_c) +x]));
+
+        }
+
+    }
+    free(bufu);
+    
+    // v
+    unsigned char *bufv = (unsigned char *) malloc(ctx->pic->w_c*ctx->pic->h_c*sizeof(char));
+    r = fread(bufv, sizeof(unsigned char), ctx->pic->w_c*ctx->pic->h_c, fpYuvEnhanced);
+    
+    for (int y=0; y < ctx->pic->h_c; y++) 
+    {
+
+    	for (int x=0; x < ctx->pic->w_c; x++) 
+    	{
+
+  
+        	ctx->pic->v[(y*ctx->pic->s_c) + x] = (pel)((1023/255)*(bufv[(y*ctx->pic->w_c) +x]));
+        	
+        }
+
+    }
+    
+    free(bufv);
+    fclose(fpYuvEnhanced);
+    // end
     return EVEY_OK;
 }
 
@@ -1609,74 +1730,6 @@ static int eveye_enc(EVEYE_CTX * ctx, EVEY_BITB * bitb, EVEYE_STAT * stat)
     /* finishing of encoding a picture */
     ctx->fn_enc_pic_finish(ctx, bitb, stat);
     evey_assert_rv(ret == EVEY_OK, ret);
-    
-    int w = ctx->param.w;
-    int h = ctx->param.h;
-    
-    // added but to modify
-    FILE* fpYuvEnhanced;
-    fpYuvEnhanced = fopen("rec_enhanced.yuv", "rb");
-    
-    // Suggerimento tutors
-    // y
-    unsigned char *bufy = (unsigned char *) malloc(w*h*sizeof(char));
-    //pel *bufy16 = (pel*) malloc(w*h*sizeof(pel));
-    
-    int r = fread(bufy, sizeof(unsigned char), w*h, fpYuvEnhanced);
-    
-    for (int y=0; y<h; y++) 
-    {
-
-    	for (int x=0; x<w; x++) 
-    	{
-    	
-        	ctx->pic->y[(y*ctx->pic->s_l) + x] = (pel)(4*bufy[(y*w) +x]);
-
-        }
-
-    }
-    free(bufy);
-    
-    // u
-    unsigned char *bufu = (unsigned char *) malloc(ctx->pic->w_c*ctx->pic->h_c*sizeof(char));
-    //pel *bufu16 = (pel*) malloc(ctx->pic->w_c*ctx->pic->h_c*sizeof(pel));
-    
-    r = fread(bufu, sizeof(unsigned char), ctx->pic->w_c*ctx->pic->h_c, fpYuvEnhanced);
-    
-    for (int y=0; y < ctx->pic->h_c; y++) 
-    {
-
-    	for (int x=0; x < ctx->pic->w_c; x++) 
-    	{
-
-        	ctx->pic->u[(y*ctx->pic->s_c) + x] = (pel)(4*bufu[(y*ctx->pic->w_c) +x]);
-
-        }
-
-    }
-    free(bufu);
-    
-    // v
-    unsigned char *bufv = (unsigned char *) malloc(ctx->pic->w_c*ctx->pic->h_c*sizeof(char));
-    //pel *bufv16 = (pel*) malloc(ctx->pic->w_c*ctx->pic->h_c*sizeof(pel));
-    
-    r = fread(bufv, sizeof(unsigned char), ctx->pic->w_c*ctx->pic->h_c, fpYuvEnhanced);
-    
-    for (int y=0; y < ctx->pic->h_c; y++) 
-    {
-
-    	for (int x=0; x < ctx->pic->w_c; x++) 
-    	{
-
-  
-        	ctx->pic->v[(y*ctx->pic->s_c) + x] = (pel)(4*bufv[(y*ctx->pic->w_c) +x]);
-        	
-        }
-
-    }
-    
-    free(bufv);
-    fclose(fpYuvEnhanced);
     
     return EVEY_OK;
 }
