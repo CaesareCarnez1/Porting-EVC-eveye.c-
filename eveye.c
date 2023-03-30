@@ -1488,7 +1488,6 @@ static int eveye_enc_pic(EVEYE_CTX * ctx, EVEY_BITB * bitb, EVEYE_STAT * stat)
         // added
     	FILE *CuDepth;
     
-    	int poc = ctx->poc.poc_val;
     	int addr = core->ctu_num;
     	int w = ctx->param.w;
     	int h = ctx->param.h;
@@ -1644,7 +1643,6 @@ static int eveye_enc_pic(EVEYE_CTX * ctx, EVEY_BITB * bitb, EVEYE_STAT * stat)
         EVEY_TRACE_SET(0);
 #endif
     }
-    printf("\n%d, %d, %d\n", ctx->pic->w_l, ctx->pic->h_l, ctx->pic->s_l);
     
     // added
     FILE* fpYuvEnhanced;
